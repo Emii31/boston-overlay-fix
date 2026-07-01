@@ -1,0 +1,26 @@
+name: Build Boston Overlay Fix
+on: [workflow_dispatch]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      - name: Setup Android SDK
+        run: |
+          mkdir -p $HOME/Android/Sdk/platforms/android-35
+          wget -O $HOME/Android/Sdk/platforms/android-35/android.jar https://r2.dev
+      - name: Build Module
+        run: |
+          export ANDROID_HOME=$HOME/Android/Sdk
+          chmod +x build.sh
+          ./build.sh
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: boston_gsi_overlay_fix_v1
+          path: boston_gsi_overlay_fix_v1.zip
