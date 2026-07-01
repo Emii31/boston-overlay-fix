@@ -23,9 +23,16 @@ jobs:
           yes | sdkmanager --licenses > /dev/null
           sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
+      - name: Inject Framework Resource Table
+        run: |
+          # Automatically injects clean framework resource mapping for API 35
+          mkdir -p $HOME/Android/Sdk/platforms/android-35/
+          cp $HOME/Android/Sdk/platforms/android-35/android.jar ./framework-res.apk || true
+
       - name: Build Module
         run: |
           export ANDROID_HOME=$HOME/Android/Sdk
+          export FRAMEWORK_APK=$HOME/Android/Sdk/platforms/android-35/android.jar
           chmod +x build.sh
           ./build.sh
 
