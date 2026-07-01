@@ -5,20 +5,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
-      - name: Setup Android SDK
+
+      - name: Install Official Android SDK Platform 35
         run: |
-          mkdir -p $HOME/Android/Sdk/platforms/android-35
-          wget -O $HOME/Android/Sdk/platforms/android-35/android.jar https://r2.dev
+          mkdir -p $HOME/Android/Sdk/cmdline-tools/latest
+          wget -q https://google.com
+          unzip -q commandlinetools-linux-11076708_latest.zip
+          mv cmdline-tools/* $HOME/Android/Sdk/cmdline-tools/latest/
+          export ANDROID_HOME=$HOME/Android/Sdk
+          export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin
+          yes | sdkmanager --licenses > /dev/null
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
       - name: Build Module
         run: |
           export ANDROID_HOME=$HOME/Android/Sdk
           chmod +x build.sh
           ./build.sh
+
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
