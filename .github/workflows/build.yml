@@ -147,15 +147,15 @@ jobs:
           cp dist/*.apk "$STAGING/overlay/product/overlay/"
 
           cd "$STAGING"
-          zip -r -X ../boston_gsi_overlay_fix_v1.zip . -x ".*"
+          zip -r -X ../boston_gsi_overlay_fix_v1.3.0zip . -x ".*"
           cd ..
 
           echo "=== Final zip contents ==="
-          unzip -l boston_gsi_overlay_fix_v1.zip
+          unzip -l boston_gsi_overlay_fix_v1.3.0.zip
 
       - name: Upload flashable zip
         uses: actions/upload-artifact@v4
         with:
-          name: boston_gsi_overlay_fix_v1
-          path: boston_gsi_overlay_fix_v1.zip
+          name: boston_gsi_overlay_fix_v1.3.0
+          path: boston_gsi_overlay_fix_v1.3.0.zip
           retention-days: 30
