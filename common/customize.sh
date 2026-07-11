@@ -5,10 +5,17 @@
 #
 # Responsibilities here:
 #   1. Abort install on a device that clearly isn't Boston (parrot) - this
-#      module writes overlays with hardware-specific pixel values (UDFPS at
-#      540,2154 / cutout circle at 540,53 / etc extracted from a Boston-only
-#      firmware dump) that would misplace UI elements on any other device.
+#      module writes overlays and vendor file replacements with
+#      hardware-specific values (UDFPS at 540,2154 / cutout circle at
+#      540,53 / this device's actual Dolby library set / etc, all
+#      extracted from a Boston-only firmware dump) that would misplace UI
+#      elements or reference nonexistent libraries on any other device.
 #   2. Set correct permissions on the files this module ships.
+#   3. Extract two independent categories of file from this module's own
+#      zip: overlay APKs (mounted under /product/overlay) and vendor/etc
+#      file replacements (mounted under /vendor/etc, e.g. audio_effects.xml
+#      for Dolby - see the vendor/etc block below for why this needs
+#      magic-mount rather than a direct file write on this device).
 #
 # What this script does NOT do: enable overlays via `cmd overlay enable`.
 # Every overlay in this module is isStatic="true" (matching the stock
@@ -82,11 +89,40 @@ fi
 
 set_perm_recursive "$MODPATH/product/overlay" 0 0 0755 0644
 
+# --- Copy vendor/etc file replacements into the module's mount tree ---
+# Same magic-mount mechanism as above, different target path. /vendor on
+# this device is mounted as erofs (confirmed on-device: `mount | grep
+# vendor` showed "type erofs (ro,...)") - erofs is structurally read-only,
+# not merely ro-flagged, so a plain file write there always fails
+# regardless of root ("Read-only file system", confirmed via a direct
+# touch test). Magisk's magic-mount bypasses this the same way it already
+# does for /product/overlay above - it never writes to the erofs image,
+# it bind-mounts a replacement over the path at boot. This is optional:
+# older installs of this module (or a rebuilt zip without this file) won't
+# have it, so absence here is not an install-time error.
+mkdir -p "$MODPATH/vendor/etc"
+
+unzip -o "$ZIPFILE" 'overlay/vendor/etc/*' -d "$TMPDIR/extracted_vendor" >&2
+
+if [ -d "$TMPDIR/extracted_vendor/overlay/vendor/etc" ]; then
+  cp -af "$TMPDIR"/extracted_vendor/overlay/vendor/etc/* "$MODPATH/vendor/etc/" 2>/dev/null
+fi
+
+VENDOR_FILE_COUNT=$(ls -1 "$MODPATH/vendor/etc/" 2>/dev/null | wc -l)
+if [ "$VENDOR_FILE_COUNT" -gt 0 ]; then
+  ui_print "- Copied $VENDOR_FILE_COUNT vendor/etc file(s) into place (e.g. audio_effects.xml for Dolby)"
+  set_perm_recursive "$MODPATH/vendor/etc" 0 0 0755 0644
+fi
+
 ui_print "- Permissions set"
 ui_print "-------------------------------------------"
 ui_print " Install complete. Reboot required."
-ui_print " V1 scope: display/cutout/UDFPS/brightness/"
-ui_print " refresh-rate/night-light/doze/WiFi-Display."
-ui_print " NOT included: telephony (separate module),"
-ui_print " vendor audio-HAL routing (see module README)."
+ui_print " V3 scope: display/cutout/UDFPS/brightness/"
+ui_print " refresh-rate/night-light/doze/WiFi-Display/"
+ui_print " lock screen layout/Dolby audio effects."
+ui_print " NOT included: telephony (separate module)."
+ui_print " See module README for full details and"
+ui_print " what remains unresolved (UDFPS/HBM enroll,"
+ui_print " speaker calibration - both documented,"
+ui_print " not fixable with available tooling)."
 ui_print "-------------------------------------------"

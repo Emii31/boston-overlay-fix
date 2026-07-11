@@ -176,6 +176,7 @@ rm -rf "$MODULE_STAGING"
 mkdir -p "$MODULE_STAGING/META-INF/com/google/android"
 mkdir -p "$MODULE_STAGING/common"
 mkdir -p "$MODULE_STAGING/overlay/product/overlay"
+mkdir -p "$MODULE_STAGING/overlay/vendor/etc"
 
 cp "$SCRIPT_DIR/module.prop" "$MODULE_STAGING/"
 if [ -f "$SCRIPT_DIR/system.prop" ]; then
@@ -187,8 +188,11 @@ cp "$SCRIPT_DIR/common/customize.sh" "$MODULE_STAGING/common/"
 cp "$SCRIPT_DIR/common/post-fs-data.sh" "$MODULE_STAGING/common/"
 cp "$SCRIPT_DIR/common/service.sh" "$MODULE_STAGING/common/"
 cp "$OUT_DIR"/*.apk "$MODULE_STAGING/overlay/product/overlay/"
+if [ -d "$SCRIPT_DIR/overlay/vendor/etc" ]; then
+  cp -a "$SCRIPT_DIR"/overlay/vendor/etc/* "$MODULE_STAGING/overlay/vendor/etc/" 2>/dev/null
+fi
 
-ZIP_NAME="boston_gsi_overlay_fix_v1.zip"
+ZIP_NAME="boston_gsi_overlay_fix_v3.zip"
 cd "$MODULE_STAGING"
 rm -f "$SCRIPT_DIR/$ZIP_NAME"
 zip -r -X "$SCRIPT_DIR/$ZIP_NAME" . -x ".*"
