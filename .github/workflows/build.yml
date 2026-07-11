@@ -126,6 +126,8 @@ jobs:
 
           ls -la dist/
 
+      # ... (previous lines remain identical)
+
       - name: Assemble flashable Magisk zip
         run: |
           set -e
@@ -147,7 +149,7 @@ jobs:
           cp dist/*.apk "$STAGING/overlay/product/overlay/"
 
           cd "$STAGING"
-          zip -r -X ../boston_gsi_overlay_fix_v1.3.0zip . -x ".*"
+          zip -r -X ../boston_gsi_overlay_fix_v1.3.0.zip . -x ".*"
           cd ..
 
           echo "=== Final zip contents ==="
