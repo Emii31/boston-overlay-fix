@@ -154,3 +154,7 @@ jobs:
 
           echo "=== Final zip contents ==="
           unzip -l boston_gsi_overlay_fix_v1.3.0.zip
+        
+          name: boston_gsi_overlay_fix_v1.3.0
+          path: "*.zip"
+          retention-days: 30
