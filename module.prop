@@ -1,7 +1,7 @@
 id=boston_gsi_overlay_fix
-name=Boston GSI Overlay Fix (V1)
-version=v1.0
-versionCode=1
-author=boston-overlay-build
+name=Boston GSI Overlay Fix (V1.3.0)
+version=v1.3.0
+versionCode=13
+author=Imam (Emii31)
 description=RRO fixes for Motorola Boston (parrot) on Android 16 GSI: display cutout geometry, UDFPS sensor position and HBM, status bar height, rounded corners, refresh rate policy, auto-brightness curve, night light, doze/AOD flags, safe media volume, WiFi Display. V1 scope only - no telephony, no vendor audio-HAL routing (see README in module for what is NOT covered).
 minMagisk=29000
