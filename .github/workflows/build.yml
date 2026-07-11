@@ -61,7 +61,7 @@ jobs:
             -keyalg RSA -keysize 2048 -validity 10000 \
             -storepass boston-overlay-debug -keypass boston-overlay-debug \
             -dname "CN=Boston Overlay Fix V1, OU=Personal, O=Personal, L=Unknown, ST=Unknown, C=US"
-        working-directory: boston_module
+
 
       - name: Link, align, and sign each overlay
         run: |
