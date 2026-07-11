@@ -155,13 +155,23 @@ jobs:
           mkdir -p "$STAGING/common"
           mkdir -p "$STAGING/overlay/vendor/overlay"
 
+          # Copy primary properties files
           cp module.prop "$STAGING/"
           if [ -f system.prop ]; then
             cp system.prop "$STAGING/"
           fi
           
+          # Copy internal Magisk core assets cleanly
           cp -r META-INF/* "$STAGING/META-INF/" 2>/dev/null || true
           cp -r common/* "$STAGING/common/" 2>/dev/null || true
+          
+          # CRITICAL FIXED LINE: Copy existing static file structures (like audio_effects.xml)
+          if [ -d "overlay" ]; then
+            echo "Preserving manual overlay assets and audio profiles..."
+            cp -r overlay/* "$STAGING/overlay/" 2>/dev/null || true
+          fi
+          
+          # Copy newly compiled APK overlays into the final directory path
           cp dist/*.apk "$STAGING/overlay/vendor/overlay/"
 
           cd "$STAGING"
