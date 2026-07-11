@@ -1,0 +1,263 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Boston (parrot) framework-res overlay values
+
+  Every value in this file is either:
+  (a) copied verbatim from a decoded resources.arsc of a stock Boston
+      overlay APK in the uploaded dump (see per-value comments for the
+      specific source APK), or
+  (b) a comment explaining that the resource is NOT overridden by stock
+      and is intentionally left unset rather than filled with an estimate.
+
+  Device-level context confirmed from properties/getprop.txt:
+  - ro.sf.lcd_density=400
+  - ro.vendor.display.paneltype=2 (AMOLED)
+  - ro.hardware.fingerprint=goodix
+  - SurfaceFlinger dump: resolution=1080x2400, dpi=397.57x393.29
+
+  Display cutout (config_mainBuiltInDisplayCutout, status_bar_height*) and
+  UDFPS sensor geometry are intentionally NOT duplicated in this file -
+  see BostonCutoutOverlay and BostonUDFPSOverlay respectively, which own
+  those resource keys.
+-->
+<resources>
+
+    <!-- ============================================================ -->
+    <!-- DISPLAY CUTOUT                                               -->
+    <!-- Intentionally NOT set here. config_mainBuiltInDisplayCutout, -->
+    <!-- status_bar_height, status_bar_height_portrait, and           -->
+    <!-- status_bar_height_landscape are all defined in                -->
+    <!-- BostonCutoutOverlay/res/values/config.xml using verbatim      -->
+    <!-- values decoded from the stock framework RRO's resources.arsc. -->
+    <!-- Duplicating them here with different (estimated) numbers      -->
+    <!-- would create a silent contradiction between two overlays      -->
+    <!-- targeting the same resource keys - see BostonCutoutOverlay   -->
+    <!-- for the actual values and their source.                       -->
+    <!-- ============================================================ -->
+
+    <!-- ============================================================ -->
+    <!-- DISPLAY DENSITY & DIMENSIONS                                 -->
+    <!-- Intentionally empty. config_screenWidth / config_screenHeight -->
+    <!-- / config_density_default are not confirmed valid overridable  -->
+    <!-- AOSP resource names, and none of the three appear anywhere in -->
+    <!-- the decoded resources.arsc of any overlay APK in this dump.   -->
+    <!-- Display density is controlled by ro.sf.lcd_density=400 in     -->
+    <!-- the build prop (already correct in stock Boston firmware),    -->
+    <!-- not by a framework resource overlay - so there is nothing    -->
+    <!-- for this overlay to set here.                                 -->
+    <!-- ============================================================ -->
+
+    <!-- ============================================================ -->
+    <!-- CORNER RADIUS - VERIFIED VALUES ONLY                         -->
+    <!-- Source: overlay/vendor_overlay/framework-res__auto_generated_rro_vendor.apk -->
+    <!-- decoded directly via get_dimen_resources(). Not calculated.  -->
+    <!-- Note: vendor.display.enable_rounded_corner=0 in getprop.txt  -->
+    <!-- controls a DIFFERENT thing (a display-HAL-level hardware      -->
+    <!-- corner-cutting feature), not these SystemUI overlay corner   -->
+    <!-- radius resources used for content clipping/decoration.       -->
+    <!-- ============================================================ -->
+
+    <!--
+      rounded_corner_radius: VERBATIM from vendor RRO = 75.0px
+      rounded_corner_radius_top / _bottom: VERBATIM from vendor RRO = 72.0px each
+      (top/bottom differ slightly from the general radius in the source -
+      preserved as-is rather than collapsed to one value.)
+    -->
+    <dimen name="rounded_corner_radius">75px</dimen>
+    <dimen name="rounded_corner_radius_top">72px</dimen>
+    <dimen name="rounded_corner_radius_bottom">72px</dimen>
+
+    <!-- ============================================================ -->
+    <!-- NAVIGATION BAR                                               -->
+    <!-- Intentionally mostly empty. navigation_bar_height,            -->
+    <!-- navigation_bar_width, navigation_bar_gesture_height,           -->
+    <!-- system_gesture_exclusion_rect_y_offset, and                   -->
+    <!-- navigation_bar_frame_height* are NOT overridden anywhere in    -->
+    <!-- the decoded resources.arsc of any overlay APK in this dump -  -->
+    <!-- the stock GSI/AOSP defaults for these are apparently already   -->
+    <!-- correct on this device, since Motorola did not need to patch   -->
+    <!-- them. The only navigation-related values stock Boston actually -->
+    <!-- overrides are the deadzone-size dimens, which are correctly    -->
+    <!-- set in BostonSystemUIOverlay (their actual source RRO).        -->
+    <!-- ============================================================ -->
+
+    <!-- ============================================================ -->
+    <!-- BRIGHTNESS CONFIGURATION - VERIFIED VALUES ONLY               -->
+    <!-- Sources:                                                      -->
+    <!-- - config_screenBrightnessDoze: boston framework RRO            -->
+    <!-- - everything else below: vendor RRO                           -->
+    <!--   (overlay/vendor_overlay/framework-res__auto_generated_rro_vendor.apk) -->
+    <!-- All decoded directly via get_resolved_res_configs(). The      -->
+    <!-- previous version of this file had a fully invented 18-step    -->
+    <!-- lux/brightness curve; that curve is REMOVED and replaced with -->
+    <!-- the real 13/14-step curve actually shipped on this device.    -->
+    <!-- ============================================================ -->
+
+    <!--
+      config_screenBrightnessDoze
+      VERBATIM from stock Boston framework RRO: 17
+      (legacy 0-255 scale; this is the only legacy-scale brightness
+      integer confirmed present in either RRO - config_screenBrightnessMinimum/
+      Maximum/Default/Dark are NOT overridden by stock and are intentionally
+      left out rather than filled with guesses.)
+    -->
+    <integer name="config_screenBrightnessDoze">17</integer>
+
+    <!--
+      config_autoBrightnessLevels
+      VERBATIM array from vendor RRO. Lux thresholds that trigger a step
+      change in auto-brightness (13 entries).
+    -->
+    <integer-array name="config_autoBrightnessLevels">
+        <item>2</item>
+        <item>4</item>
+        <item>10</item>
+        <item>20</item>
+        <item>40</item>
+        <item>100</item>
+        <item>325</item>
+        <item>1250</item>
+        <item>3500</item>
+        <item>5000</item>
+        <item>10000</item>
+        <item>20000</item>
+        <item>30000</item>
+    </integer-array>
+
+    <!--
+      config_autoBrightnessDisplayValuesNits / config_screenBrightnessNits
+      VERBATIM array from vendor RRO (both resources share the identical
+      14-entry value list in the source - preserved as two separate
+      declarations rather than collapsed, matching the original RRO).
+      Display brightness in nits for each lux band (one more entry than
+      config_autoBrightnessLevels, first entry covers 0 lux up to the
+      first threshold).
+    -->
+    <integer-array name="config_autoBrightnessDisplayValuesNits">
+        <item>3</item>
+        <item>7</item>
+        <item>10</item>
+        <item>24</item>
+        <item>64</item>
+        <item>82</item>
+        <item>90</item>
+        <item>105</item>
+        <item>192</item>
+        <item>412</item>
+        <item>500</item>
+        <item>700</item>
+        <item>1000</item>
+        <item>1200</item>
+    </integer-array>
+
+    <integer-array name="config_screenBrightnessNits">
+        <item>3</item>
+        <item>7</item>
+        <item>10</item>
+        <item>24</item>
+        <item>64</item>
+        <item>82</item>
+        <item>90</item>
+        <item>105</item>
+        <item>192</item>
+        <item>412</item>
+        <item>500</item>
+        <item>700</item>
+        <item>1000</item>
+        <item>1200</item>
+    </integer-array>
+
+    <!--
+      config_autoBrightnessLcdBacklightValues / config_screenBrightnessBacklight
+      VERBATIM arrays from vendor RRO. These map the same lux bands to
+      raw backlight driver values (0-255 scale) rather than nits.
+      NOTE: the two arrays differ slightly in the source (8 entries vs
+      14 entries) - preserved exactly as found, not reconciled or
+      padded, since the discrepancy exists in the stock ROM itself.
+    -->
+    <integer-array name="config_autoBrightnessLcdBacklightValues">
+        <item>10</item>
+        <item>20</item>
+        <item>40</item>
+        <item>70</item>
+        <item>110</item>
+        <item>160</item>
+        <item>200</item>
+        <item>255</item>
+    </integer-array>
+
+    <integer-array name="config_screenBrightnessBacklight">
+        <item>9</item>
+        <item>26</item>
+        <item>34</item>
+        <item>52</item>
+        <item>85</item>
+        <item>95</item>
+        <item>100</item>
+        <item>107</item>
+        <item>141</item>
+        <item>200</item>
+        <item>219</item>
+        <item>229</item>
+        <item>245</item>
+        <item>255</item>
+    </integer-array>
+
+    <!--
+      config_brightnessThresholdsOfPeakRefreshRate
+      VERBATIM array from vendor RRO: [77, 62]
+      Lux/brightness thresholds controlling when the display is allowed
+      to run at its peak (120Hz) refresh rate vs a lower rate.
+    -->
+    <integer-array name="config_brightnessThresholdsOfPeakRefreshRate">
+        <item>77</item>
+        <item>62</item>
+    </integer-array>
+
+    <!--
+      Debounce timers (ms) for auto-brightness transitions.
+      VERBATIM from vendor RRO: both 500ms.
+    -->
+    <integer name="config_autoBrightnessBrighteningLightDebounce">500</integer>
+    <integer name="config_autoBrightnessDarkeningLightDebounce">500</integer>
+
+    <!--
+      config_screenBrightnessSettingDefault
+      VERBATIM from vendor RRO: 98 (legacy 0-255 scale default).
+    -->
+    <integer name="config_screenBrightnessSettingDefault">98</integer>
+
+    <!--
+      Float-scale (0.0-1.0) brightness settings.
+      VERBATIM from vendor RRO.
+    -->
+    <item name="config_screenBrightnessSettingDefaultFloat" format="float" type="dimen">0.381890</item>
+    <item name="config_screenBrightnessSettingMaximumFloat" format="float" type="dimen">1.000000</item>
+    <item name="config_screenBrightnessSettingMinimumFloat" format="float" type="dimen">0.034188</item>
+    <item name="config_screenBrightnessDimFloat" format="float" type="dimen">0.034188</item>
+
+    <!--
+      config_isSupportHighAccuracyAutoBrightness
+      VERBATIM from vendor RRO: true
+    -->
+    <bool name="config_isSupportHighAccuracyAutoBrightness">true</bool>
+
+    <!--
+      config_automatic_brightness_available
+      VERBATIM from both boston framework RRO and vendor RRO: true
+      (the light sensor required for this is confirmed present via
+      vendor/etc/permissions/android.hardware.sensor.light.xml in the dump).
+    -->
+    <bool name="config_automatic_brightness_available">true</bool>
+
+    <!-- ============================================================ -->
+    <!-- WINDOW CONFIGURATION / WAKE GESTURES                          -->
+    <!-- Intentionally empty. config_supportsMultiWindow,               -->
+    <!-- config_supportsSplitScreenMultiWindow,                         -->
+    <!-- config_allowAnimationsInLowPowerMode,                          -->
+    <!-- config_enableLockScreenRotation, and config_supportDoubleTapWake -->
+    <!-- are not overridden anywhere in the decoded resources.arsc of   -->
+    <!-- any overlay APK in this dump - nothing to verify or set here. -->
+    <!-- ============================================================ -->
+
+</resources>
