@@ -1,11 +1,5 @@
 name: Build Boston Overlay Fix
 
-# Verified against android-actions/setup-android's real README (fetched
-# 2026-07-01): that action only installs `tools` + `platform-tools` by
-# default. build-tools and a platform (for android.jar) are NOT installed
-# automatically and must be requested explicitly via sdkmanager, which is
-# what the "Install build-tools and platform" step below does.
-
 on:
   workflow_dispatch:
   push:
@@ -62,16 +56,8 @@ jobs:
             -storepass boston-overlay-debug -keypass boston-overlay-debug \
             -dname "CN=Boston Overlay Fix V1, OU=Personal, O=Personal, L=Unknown, ST=Unknown, C=US"
 
-
       - name: Link, align, and sign each overlay
         run: |
-          # NOTE: deliberately NOT using `set -e` in this step. Verified by
-          # direct test that `set -e` combined with a later `if [ $? -ne 0 ]`
-          # check kills the script on the first failing command before that
-          # check ever runs - which would silently abort on overlay #1 with
-          # no per-overlay diagnostic, defeating the point of looping through
-          # all 8 and reporting exactly which ones failed. Every command's
-          # exit code below is checked explicitly instead.
           AAPT2="${{ steps.sdk.outputs.build_tools }}/aapt2"
           ZIPALIGN="${{ steps.sdk.outputs.build_tools }}/zipalign"
           APKSIGNER="${{ steps.sdk.outputs.build_tools }}/apksigner"
@@ -139,7 +125,6 @@ jobs:
           fi
 
           ls -la dist/
-        working-directory: boston_module
 
       - name: Assemble flashable Magisk zip
         run: |
@@ -167,11 +152,10 @@ jobs:
 
           echo "=== Final zip contents ==="
           unzip -l boston_gsi_overlay_fix_v1.zip
-        working-directory: boston_module
 
       - name: Upload flashable zip
         uses: actions/upload-artifact@v4
         with:
           name: boston_gsi_overlay_fix_v1
-          path: boston_module/boston_gsi_overlay_fix_v1.zip
+          path: boston_gsi_overlay_fix_v1.zip
           retention-days: 30
