@@ -126,16 +126,18 @@ jobs:
 
           ls -la dist/
 
-      # ... (previous lines remain identical)
-
       - name: Assemble flashable Magisk zip
         run: |
           set -e
+          
+          # Guarantee compilation tools are ready on the Linux host environment
+          sudo apt-get update && sudo apt-get install -y zip unzip
+
           STAGING=module_staging
           rm -rf "$STAGING"
           mkdir -p "$STAGING/META-INF/com/google/android"
           mkdir -p "$STAGING/common"
-          mkdir -p "$STAGING/overlay/vendor/overlay" # Changed to vendor/overlay
+          mkdir -p "$STAGING/overlay/vendor/overlay"
 
           cp module.prop "$STAGING/"
           if [ -f system.prop ]; then
@@ -146,7 +148,7 @@ jobs:
           cp common/customize.sh "$STAGING/common/"
           cp common/post-fs-data.sh "$STAGING/common/"
           cp common/service.sh "$STAGING/common/"
-          cp dist/*.apk "$STAGING/overlay/vendor/overlay/" # Changed to vendor/overlay
+          cp dist/*.apk "$STAGING/overlay/vendor/overlay/"
 
           cd "$STAGING"
           zip -r -X ../boston_gsi_overlay_fix_v1.3.0.zip . -x ".*"
@@ -154,7 +156,10 @@ jobs:
 
           echo "=== Final zip contents ==="
           unzip -l boston_gsi_overlay_fix_v1.3.0.zip
-        
+
+      - name: Upload flashable zip
+        uses: actions/upload-artifact@v4
+        with:
           name: boston_gsi_overlay_fix_v1.3.0
           path: "*.zip"
           retention-days: 30
