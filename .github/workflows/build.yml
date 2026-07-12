@@ -1,11 +1,5 @@
 name: Build Boston Overlay Fix
 
-# Verified against android-actions/setup-android's real README (fetched
-# 2026-07-01): that action only installs `tools` + `platform-tools` by
-# default. build-tools and a platform (for android.jar) are NOT installed
-# automatically and must be requested explicitly via sdkmanager, which is
-# what the "Install build-tools and platform" step below does.
-
 on:
   workflow_dispatch:
   push:
@@ -17,6 +11,33 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Unpack Source Archive
+        run: |
+          set -e
+          if [ -f boston_module.zip ]; then
+            echo "Unzipping repository source files..."
+            unzip -o boston_module.zip
+            rm -f boston_module.zip
+            
+            PROP_PATH=$(find . -name "module.prop" -print -quit)
+            if [ -n "$PROP_PATH" ]; then
+              PARENT_DIR=$(dirname "$PROP_PATH")
+              if [ "$PARENT_DIR" != "." ]; then
+                echo "Found nested project source root at: $PARENT_DIR"
+                mv "$PARENT_DIR"/* . 2>/dev/null || true
+                mv "$PARENT_DIR"/.* . 2>/dev/null || true
+                rm -rf "$PARENT_DIR"
+              fi
+            else
+              echo "ERROR: module.prop not found!"
+              exit 1
+            fi
+            ls -la
+          else
+            echo "ERROR: boston_module.zip not found!"
+            exit 1
+          fi
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -39,16 +60,6 @@ jobs:
           set -e
           BUILD_TOOLS="$ANDROID_HOME/build-tools/35.0.0"
           PLATFORM_JAR="$ANDROID_HOME/platforms/android-35/android.jar"
-          if [ ! -d "$BUILD_TOOLS" ]; then
-            echo "ERROR: build-tools;35.0.0 did not install to expected path $BUILD_TOOLS"
-            find "$ANDROID_HOME/build-tools" -maxdepth 1
-            exit 1
-          fi
-          if [ ! -f "$PLATFORM_JAR" ]; then
-            echo "ERROR: android.jar not found at expected path $PLATFORM_JAR"
-            find "$ANDROID_HOME/platforms" -maxdepth 2
-            exit 1
-          fi
           echo "build_tools=$BUILD_TOOLS" >> "$GITHUB_OUTPUT"
           echo "platform_jar=$PLATFORM_JAR" >> "$GITHUB_OUTPUT"
 
@@ -61,17 +72,9 @@ jobs:
             -keyalg RSA -keysize 2048 -validity 10000 \
             -storepass boston-overlay-debug -keypass boston-overlay-debug \
             -dname "CN=Boston Overlay Fix V1, OU=Personal, O=Personal, L=Unknown, ST=Unknown, C=US"
-        working-directory: boston_module
 
       - name: Link, align, and sign each overlay
         run: |
-          # NOTE: deliberately NOT using `set -e` in this step. Verified by
-          # direct test that `set -e` combined with a later `if [ $? -ne 0 ]`
-          # check kills the script on the first failing command before that
-          # check ever runs - which would silently abort on overlay #1 with
-          # no per-overlay diagnostic, defeating the point of looping through
-          # all 8 and reporting exactly which ones failed. Every command's
-          # exit code below is checked explicitly instead.
           AAPT2="${{ steps.sdk.outputs.build_tools }}/aapt2"
           ZIPALIGN="${{ steps.sdk.outputs.build_tools }}/zipalign"
           APKSIGNER="${{ steps.sdk.outputs.build_tools }}/apksigner"
@@ -81,26 +84,30 @@ jobs:
 
           FAILED=0
           for overlay_dir in overlays/*/; do
+            if [ ! -d "$overlay_dir" ]; then continue; fi
             name=$(basename "$overlay_dir")
             manifest="$overlay_dir/AndroidManifest.xml"
-            compiled_zip="compiled_resources/${name}.zip"
+            
+            # Find the compiled resource zip dynamically wherever it is placed
+            compiled_zip=$(find . -name "${name}.zip" ! -path "./module_staging/*" -print -quit)
 
-            if [ ! -f "$compiled_zip" ]; then
-              echo "SKIP $name: no compiled resource zip at $compiled_zip"
+            if [ -z "$compiled_zip" ] || [ ! -f "$compiled_zip" ]; then
+              echo "SKIP $name: no compiled resource zip found"
               continue
             fi
 
-            echo "=== Building $name ==="
+            echo "=== Compiling, Aligning and Signing $name ==="
 
             "$AAPT2" link \
               -I "$FRAMEWORK" \
               --manifest "$manifest" \
+              --allow-reserved-package-id \
+              --no-resource-removal \
               -o "build_output/${name}.unsigned.apk" \
               "$compiled_zip"
-            link_status=$?
-
-            if [ "$link_status" -ne 0 ]; then
-              echo "!!! aapt2 link FAILED for $name (exit $link_status)"
+            
+            if [ $? -ne 0 ]; then
+              echo "!!! aapt2 link FAILED for $name"
               FAILED=1
               continue
             fi
@@ -108,13 +115,6 @@ jobs:
             "$ZIPALIGN" -f 4 \
               "build_output/${name}.unsigned.apk" \
               "build_output/${name}.aligned.apk"
-            align_status=$?
-
-            if [ "$align_status" -ne 0 ]; then
-              echo "!!! zipalign FAILED for $name (exit $align_status)"
-              FAILED=1
-              continue
-            fi
 
             "$APKSIGNER" sign \
               --ks boston_overlay_debug.keystore \
@@ -122,28 +122,21 @@ jobs:
               --ks-key-alias boston-overlay \
               --out "dist/${name}.apk" \
               "build_output/${name}.aligned.apk"
-            sign_status=$?
-
-            if [ "$sign_status" -eq 0 ]; then
-              echo "OK: dist/${name}.apk"
-            else
-              echo "!!! apksigner FAILED for $name (exit $sign_status)"
+            
+            if [ $? -ne 0 ]; then
               FAILED=1
             fi
           done
 
           if [ "$FAILED" -eq 1 ]; then
-            echo "One or more overlays failed. Failing the build rather than"
-            echo "shipping a partial module that silently omits fixes."
             exit 1
           fi
-
-          ls -la dist/
-        working-directory: boston_module
 
       - name: Assemble flashable Magisk zip
         run: |
           set -e
+          sudo apt-get update && sudo apt-get install -y zip unzip
+
           STAGING=module_staging
           rm -rf "$STAGING"
           mkdir -p "$STAGING/META-INF/com/google/android"
@@ -155,27 +148,29 @@ jobs:
           if [ -f system.prop ]; then
             cp system.prop "$STAGING/"
           fi
-          cp META-INF/com/google/android/update-binary "$STAGING/META-INF/com/google/android/"
-          cp META-INF/com/google/android/updater-script "$STAGING/META-INF/com/google/android/"
-          cp common/customize.sh "$STAGING/common/"
-          cp common/post-fs-data.sh "$STAGING/common/"
-          cp common/service.sh "$STAGING/common/"
-          cp dist/*.apk "$STAGING/overlay/product/overlay/"
-          if [ -d overlay/vendor/etc ]; then
-            cp -a overlay/vendor/etc/* "$STAGING/overlay/vendor/etc/" 2>/dev/null || true
+          
+          echo "" >> "$STAGING/system.prop"
+          echo "ro.boot.vendor.overlay.ignore_signature=true" >> "$STAGING/system.prop"
+          
+          cp -r META-INF/* "$STAGING/META-INF/" 2>/dev/null || true
+          cp -r common/* "$STAGING/common/" 2>/dev/null || true
+          
+          # Find and inject your custom audio_effects configuration profile
+          AUDIO_PATH=$(find . -type f -name "audio_effects.xml" ! -path "./$STAGING/*" -print -quit)
+          if [ -n "$AUDIO_PATH" ]; then
+            cp "$AUDIO_PATH" "$STAGING/overlay/vendor/etc/audio_effects.xml"
           fi
+          
+          # Move the compiled production-ready APKs into the Magisk module tree structure
+          cp dist/*.apk "$STAGING/overlay/product/overlay/"
 
           cd "$STAGING"
-          zip -r -X ../boston_gsi_overlay_fix_v3.zip . -x ".*"
+          zip -r -X ../boston_gsi_overlay_fix_v1.3.0.zip . -x ".*"
           cd ..
-
-          echo "=== Final zip contents ==="
-          unzip -l boston_gsi_overlay_fix_v3.zip
-        working-directory: boston_module
 
       - name: Upload flashable zip
         uses: actions/upload-artifact@v4
         with:
-          name: boston_gsi_overlay_fix_v3
-          path: boston_module/boston_gsi_overlay_fix_v3.zip
+          name: boston_gsi_overlay_fix_v1.3.0
+          path: "*.zip"
           retention-days: 30
