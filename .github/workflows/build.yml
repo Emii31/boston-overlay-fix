@@ -12,33 +12,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Unpack Source Archive
-        run: |
-          set -e
-          if [ -f boston_module.zip ]; then
-            echo "Unzipping repository source files..."
-            unzip -o boston_module.zip
-            rm -f boston_module.zip
-            
-            PROP_PATH=$(find . -name "module.prop" -print -quit)
-            if [ -n "$PROP_PATH" ]; then
-              PARENT_DIR=$(dirname "$PROP_PATH")
-              if [ "$PARENT_DIR" != "." ]; then
-                echo "Found nested project source root at: $PARENT_DIR"
-                mv "$PARENT_DIR"/* . 2>/dev/null || true
-                mv "$PARENT_DIR"/.* . 2>/dev/null || true
-                rm -rf "$PARENT_DIR"
-              fi
-            else
-              echo "ERROR: module.prop not found!"
-              exit 1
-            fi
-            ls -la
-          else
-            echo "ERROR: boston_module.zip not found!"
-            exit 1
-          fi
-
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -60,6 +33,10 @@ jobs:
           set -e
           BUILD_TOOLS="$ANDROID_HOME/build-tools/35.0.0"
           PLATFORM_JAR="$ANDROID_HOME/platforms/android-35/android.jar"
+          if [ ! -d "$BUILD_TOOLS" ]; then
+            echo "ERROR: build-tools;35.0.0 did not install to expected path $BUILD_TOOLS"
+            exit 1
+          fi
           echo "build_tools=$BUILD_TOOLS" >> "$GITHUB_OUTPUT"
           echo "platform_jar=$PLATFORM_JAR" >> "$GITHUB_OUTPUT"
 
@@ -72,6 +49,7 @@ jobs:
             -keyalg RSA -keysize 2048 -validity 10000 \
             -storepass boston-overlay-debug -keypass boston-overlay-debug \
             -dname "CN=Boston Overlay Fix V1, OU=Personal, O=Personal, L=Unknown, ST=Unknown, C=US"
+        working-directory: boston_module
 
       - name: Link, align, and sign each overlay
         run: |
@@ -84,20 +62,19 @@ jobs:
 
           FAILED=0
           for overlay_dir in overlays/*/; do
-            if [ ! -d "$overlay_dir" ]; then continue; fi
+            [ -d "$overlay_dir" ] || continue
             name=$(basename "$overlay_dir")
             manifest="$overlay_dir/AndroidManifest.xml"
-            
-            # Find the compiled resource zip dynamically wherever it is placed
-            compiled_zip=$(find . -name "${name}.zip" ! -path "./module_staging/*" -print -quit)
+            compiled_zip="compiled_resources/${name}.zip"
 
-            if [ -z "$compiled_zip" ] || [ ! -f "$compiled_zip" ]; then
-              echo "SKIP $name: no compiled resource zip found"
+            if [ ! -f "$compiled_zip" ]; then
+              echo "SKIP $name: no compiled resource zip at $compiled_zip"
               continue
             fi
 
-            echo "=== Compiling, Aligning and Signing $name ==="
+            echo "=== Building $name ==="
 
+            # Android 16 compatibility flags: allow reserved package id & bypass non-resource validation drops
             "$AAPT2" link \
               -I "$FRAMEWORK" \
               --manifest "$manifest" \
@@ -105,9 +82,10 @@ jobs:
               --no-resource-removal \
               -o "build_output/${name}.unsigned.apk" \
               "$compiled_zip"
-            
-            if [ $? -ne 0 ]; then
-              echo "!!! aapt2 link FAILED for $name"
+            link_status=$?
+
+            if [ "$link_status" -ne 0 ]; then
+              echo "!!! aapt2 link FAILED for $name (exit $link_status)"
               FAILED=1
               continue
             fi
@@ -115,6 +93,13 @@ jobs:
             "$ZIPALIGN" -f 4 \
               "build_output/${name}.unsigned.apk" \
               "build_output/${name}.aligned.apk"
+            align_status=$?
+
+            if [ "$align_status" -ne 0 ]; then
+              echo "!!! zipalign FAILED for $name (exit $align_status)"
+              FAILED=1
+              continue
+            fi
 
             "$APKSIGNER" sign \
               --ks boston_overlay_debug.keystore \
@@ -122,8 +107,12 @@ jobs:
               --ks-key-alias boston-overlay \
               --out "dist/${name}.apk" \
               "build_output/${name}.aligned.apk"
-            
-            if [ $? -ne 0 ]; then
+            sign_status=$?
+
+            if [ "$sign_status" -eq 0 ]; then
+              echo "OK: dist/${name}.apk"
+            else
+              echo "!!! apksigner FAILED for $name (exit $sign_status)"
               FAILED=1
             fi
           done
@@ -131,17 +120,18 @@ jobs:
           if [ "$FAILED" -eq 1 ]; then
             exit 1
           fi
+        working-directory: boston_module
 
       - name: Assemble flashable Magisk zip
         run: |
           set -e
-          sudo apt-get update && sudo apt-get install -y zip unzip
-
           STAGING=module_staging
           rm -rf "$STAGING"
+          
+          # Shift target structure path out to vendor/overlay to bypass Android 16 product partition security lockdowns
           mkdir -p "$STAGING/META-INF/com/google/android"
           mkdir -p "$STAGING/common"
-          mkdir -p "$STAGING/overlay/product/overlay"
+          mkdir -p "$STAGING/overlay/vendor/overlay"
           mkdir -p "$STAGING/overlay/vendor/etc"
 
           cp module.prop "$STAGING/"
@@ -149,28 +139,31 @@ jobs:
             cp system.prop "$STAGING/"
           fi
           
+          # Inject target overlay manager signature bypass directly to system tracking props
           echo "" >> "$STAGING/system.prop"
           echo "ro.boot.vendor.overlay.ignore_signature=true" >> "$STAGING/system.prop"
           
-          cp -r META-INF/* "$STAGING/META-INF/" 2>/dev/null || true
-          cp -r common/* "$STAGING/common/" 2>/dev/null || true
+          cp META-INF/com/google/android/update-binary "$STAGING/META-INF/com/google/android/"
+          cp META-INF/com/google/android/updater-script "$STAGING/META-INF/com/google/android/"
+          cp common/customize.sh "$STAGING/common/"
+          cp common/post-fs-data.sh "$STAGING/common/"
+          cp common/service.sh "$STAGING/common/"
           
-          # Find and inject your custom audio_effects configuration profile
-          AUDIO_PATH=$(find . -type f -name "audio_effects.xml" ! -path "./$STAGING/*" -print -quit)
-          if [ -n "$AUDIO_PATH" ]; then
-            cp "$AUDIO_PATH" "$STAGING/overlay/vendor/etc/audio_effects.xml"
+          # Move target signed APKs directly into vendor tracking space
+          cp dist/*.apk "$STAGING/overlay/vendor/overlay/"
+          
+          if [ -d overlay/vendor/etc ]; then
+            cp -a overlay/vendor/etc/* "$STAGING/overlay/vendor/etc/" 2>/dev/null || true
           fi
-          
-          # Move the compiled production-ready APKs into the Magisk module tree structure
-          cp dist/*.apk "$STAGING/overlay/product/overlay/"
 
           cd "$STAGING"
-          zip -r -X ../boston_gsi_overlay_fix_v1.3.0.zip . -x ".*"
+          zip -r -X ../boston_gsi_overlay_fix_v3.zip . -x ".*"
           cd ..
+        working-directory: boston_module
 
       - name: Upload flashable zip
         uses: actions/upload-artifact@v4
         with:
-          name: boston_gsi_overlay_fix_v1.3.0
-          path: "*.zip"
+          name: boston_gsi_overlay_fix_v3
+          path: boston_module/boston_gsi_overlay_fix_v3.zip
           retention-days: 30
