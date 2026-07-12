@@ -20,26 +20,22 @@ jobs:
             unzip -o boston_module.zip
             rm -f boston_module.zip
             
-            # Smart Flattening: Find where module.prop actually landed and move everything to the root
             PROP_PATH=$(find . -name "module.prop" -print -quit)
             if [ -n "$PROP_PATH" ]; then
               PARENT_DIR=$(dirname "$PROP_PATH")
               if [ "$PARENT_DIR" != "." ]; then
                 echo "Found nested project source root at: $PARENT_DIR"
-                echo "Flattening project structures directly to repo workspace root..."
                 mv "$PARENT_DIR"/* . 2>/dev/null || true
                 mv "$PARENT_DIR"/.* . 2>/dev/null || true
                 rm -rf "$PARENT_DIR"
               fi
             else
-              echo "ERROR: module.prop could not be found anywhere inside the uploaded zip archive!"
+              echo "ERROR: module.prop not found!"
               exit 1
             fi
-            
-            echo "=== Current Root Directory Layout ==="
             ls -la
           else
-            echo "ERROR: boston_module.zip not found in workspace!"
+            echo "ERROR: boston_module.zip not found!"
             exit 1
           fi
 
@@ -100,15 +96,18 @@ jobs:
 
             echo "=== Building $name ==="
 
+            # Added specialized flags to simulate legacy package compilation matching V1 stability
             "$AAPT2" link \
               -I "$FRAMEWORK" \
               --manifest "$manifest" \
+              --allow-reserved-package-id \
+              --no-resource-removal \
               -o "build_output/${name}.unsigned.apk" \
               "$compiled_zip"
             link_status=$?
 
             if [ "$link_status" -ne 0 ]; then
-              echo "!!! aapt2 link FAILED for $name (exit $link_status)"
+              echo "!!! aapt2 link FAILED for $name"
               FAILED=1
               continue
             fi
@@ -119,7 +118,6 @@ jobs:
             align_status=$?
 
             if [ "$align_status" -ne 0 ]; then
-              echo "!!! zipalign FAILED for $name (exit $align_status)"
               FAILED=1
               continue
             fi
@@ -130,12 +128,8 @@ jobs:
               --ks-key-alias boston-overlay \
               --out "dist/${name}.apk" \
               "build_output/${name}.aligned.apk"
-            sign_status=$?
-
-            if [ "$sign_status" -eq 0 ]; then
-              echo "OK: dist/${name}.apk"
-            else
-              echo "!!! apksigner FAILED for $name (exit $sign_status)"
+            
+            if [ $? -ne 0 ]; then
               FAILED=1
             fi
           done
@@ -155,23 +149,22 @@ jobs:
           mkdir -p "$STAGING/common"
           mkdir -p "$STAGING/overlay/vendor/overlay"
 
-          # Copy primary properties files
           cp module.prop "$STAGING/"
+          
+          # Force signature safety override directly inside system properties injection
           if [ -f system.prop ]; then
             cp system.prop "$STAGING/"
           fi
+          echo "" >> "$STAGING/system.prop"
+          echo "ro.boot.vendor.overlay.ignore_signature=true" >> "$STAGING/system.prop"
           
-          # Copy internal Magisk core assets cleanly
           cp -r META-INF/* "$STAGING/META-INF/" 2>/dev/null || true
           cp -r common/* "$STAGING/common/" 2>/dev/null || true
           
-          # CRITICAL FIXED LINE: Copy existing static file structures (like audio_effects.xml)
           if [ -d "overlay" ]; then
-            echo "Preserving manual overlay assets and audio profiles..."
             cp -r overlay/* "$STAGING/overlay/" 2>/dev/null || true
           fi
           
-          # Copy newly compiled APK overlays into the final directory path
           cp dist/*.apk "$STAGING/overlay/vendor/overlay/"
 
           cd "$STAGING"
