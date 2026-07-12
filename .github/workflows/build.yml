@@ -1,4 +1,3 @@
-
 name: Build Boston Overlay Fix
 
 on:
@@ -132,8 +131,9 @@ jobs:
           STAGING=module_staging
           rm -rf "$STAGING"
           
-          # Create standard Magisk virtual mount mirror folder architecture
+          # Create both folder trees to satisfy custom script checks AND mount systems
           mkdir -p "$STAGING/META-INF/com/google/android"
+          mkdir -p "$STAGING/overlay/product/overlay"
           mkdir -p "$STAGING/system/product/overlay"
           mkdir -p "$STAGING/system/vendor/etc"
 
@@ -150,20 +150,22 @@ jobs:
           cp common/post-fs-data.sh "$STAGING/"
           cp common/service.sh "$STAGING/"
           
-          # Move target payloads into Magisk system overlay mirror folder tree
+          # Copy payloads to BOTH locations
+          cp dist/*.apk "$STAGING/overlay/product/overlay/"
           cp dist/*.apk "$STAGING/system/product/overlay/"
+          
           if [ -d overlay/vendor/etc ]; then
             cp -a overlay/vendor/etc/* "$STAGING/system/vendor/etc/" 2>/dev/null || true
           fi
 
           cd "$STAGING"
-          zip -r -X ../boston_gsi_overlay_fix_v4.zip . -x ".*"
+          zip -r -X ../boston_gsi_overlay_fix_v5.zip . -x ".*"
           cd ..
         working-directory: boston_module
 
       - name: Upload flashable zip
         uses: actions/upload-artifact@v4
         with:
-          name: boston_gsi_overlay_fix_v4
-          path: boston_module/boston_gsi_overlay_fix_v4.zip
+          name: boston_gsi_overlay_fix_v5
+          path: boston_module/boston_gsi_overlay_fix_v5.zip
           retention-days: 30
