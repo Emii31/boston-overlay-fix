@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  BostonSystemUIOverlay - VERIFIED VALUES ONLY
+
+  All values below decoded directly from binary resources.arsc in:
+  - apps/SystemUI__boston_g__auto_generated_rro_product.apk
+    (config_frontBuiltInDisplayCutoutProtection,
+     real_rounded_corner_radius, rounded_corner_content_padding,
+     navigation_bar_deadzone_size*)
+  - overlay/vendor_overlay/framework-res__auto_generated_rro_vendor.apk
+    (rounded_corner_radius, rounded_corner_radius_top/bottom)
+-->
+<resources>
+
+    <!--
+      config_frontBuiltInDisplayCutoutProtection
+      VERBATIM from stock Boston SystemUI RRO.
+      Raw value: "M 507,53 a 33,33 0 1 0 66,0 a 33,33 0 1 0 -66,0 Z"
+
+      Decoded geometry: two semicircle arcs (rx=33, ry=33) starting at
+      (507,53), spanning +66/-66 in x and back to start. This traces a
+      full circle: center=(540, 53), radius=33px.
+      Center X=540 matches the screen's horizontal center exactly
+      (1080px wide / 2 = 540), confirming a true centered punch-hole.
+      This is the visual "black circle protection" layer SystemUI draws
+      to mask the camera, separate from the WM-level cutout boundary
+      (config_mainBuiltInDisplayCutout, set in BostonCutoutOverlay,
+      which is a 100x105px rectangle - the two serve different purposes
+      and are not expected to be the same shape).
+    -->
+    <string name="config_frontBuiltInDisplayCutoutProtection" translatable="false">M 507,53 a 33,33 0 1 0 66,0 a 33,33 0 1 0 -66,0 Z</string>
+
+    <!--
+      real_rounded_corner_radius
+      VERBATIM from stock Boston SystemUI RRO: 72.0px
+    -->
+    <dimen name="real_rounded_corner_radius">72px</dimen>
+
+    <!--
+      rounded_corner_content_padding
+      VERBATIM from stock Boston SystemUI RRO: 20.0px
+    -->
+    <dimen name="rounded_corner_content_padding">20px</dimen>
+
+    <!--
+      navigation_bar_deadzone_size / navigation_bar_deadzone_size_max
+      VERBATIM from stock Boston SystemUI RRO: both 0.0dip
+    -->
+    <dimen name="navigation_bar_deadzone_size">0dp</dimen>
+    <dimen name="navigation_bar_deadzone_size_max">0dp</dimen>
+    <dimen name="cli_navigation_bar_deadzone_size">0dp</dimen>
+
+    <!--
+      keyguard_status_view_bottom_margin
+      ADJUSTMENT, NOT a decoded stock value - unlike every other entry in
+      this file, Motorola's stock RROs (both product and vendor) do not
+      override this key at all, so there is no factory-tuned value to
+      source. This device's SystemUI build ships a default of 16dip for
+      the unqualified (default) config bucket, which IS the bucket that
+      applies here (this device computes to ~sw410dp; every other
+      qualified variant in the GSI's SystemUI requires sw600dp+ and does
+      not apply).
+
+      Confirmed via user screenshot: at 16dip, the lock screen notification
+      stack visually overlaps the keyguard clock/date/weather block,
+      obscuring the alarm icon and partially covering the clock digits.
+      Increased to 40dip as a conservative visual fix based on that direct
+      evidence. If still insufficient or if it creates excess dead space
+      for you, this is the value to adjust further - there is no "correct"
+      factory number being approximated here, this is tuned from what was
+      visually observed.
+    -->
+    <dimen name="keyguard_status_view_bottom_margin">40dip</dimen>
+
+</resources>
