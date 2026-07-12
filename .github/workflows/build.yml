@@ -1,3 +1,4 @@
+
 name: Build Boston Overlay Fix
 
 on:
@@ -120,12 +121,9 @@ jobs:
           done
 
           if [ "$FAILED" -eq 1 ]; then
-            echo "One or more overlays failed. Failing the build rather than"
-            echo "shipping a partial module that silently omits fixes."
+            echo "One or more overlays failed."
             exit 1
           fi
-
-          ls -la dist/
         working-directory: boston_module
 
       - name: Assemble flashable Magisk zip
@@ -133,39 +131,39 @@ jobs:
           set -e
           STAGING=module_staging
           rm -rf "$STAGING"
+          
+          # Create standard Magisk virtual mount mirror folder architecture
           mkdir -p "$STAGING/META-INF/com/google/android"
-          mkdir -p "$STAGING/overlay/product/overlay"
-          mkdir -p "$STAGING/overlay/vendor/etc"
+          mkdir -p "$STAGING/system/product/overlay"
+          mkdir -p "$STAGING/system/vendor/etc"
 
-          # Copy core configuration properties to zip root
+          # Core configs
           cp module.prop "$STAGING/"
           if [ -f system.prop ]; then
             cp system.prop "$STAGING/"
           fi
           
-          # Copy standard update binaries
+          # Binaries & Scripts
           cp META-INF/com/google/android/update-binary "$STAGING/META-INF/com/google/android/"
           cp META-INF/com/google/android/updater-script "$STAGING/META-INF/com/google/android/"
-          
-          # FIX: Move script files directly to the root of the zip archive
           cp common/customize.sh "$STAGING/"
           cp common/post-fs-data.sh "$STAGING/"
           cp common/service.sh "$STAGING/"
           
-          # Copy compiled output artifacts
-          cp dist/*.apk "$STAGING/overlay/product/overlay/"
+          # Move target payloads into Magisk system overlay mirror folder tree
+          cp dist/*.apk "$STAGING/system/product/overlay/"
           if [ -d overlay/vendor/etc ]; then
-            cp -a overlay/vendor/etc/* "$STAGING/overlay/vendor/etc/" 2>/dev/null || true
+            cp -a overlay/vendor/etc/* "$STAGING/system/vendor/etc/" 2>/dev/null || true
           fi
 
           cd "$STAGING"
-          zip -r -X ../boston_gsi_overlay_fix_v3.zip . -x ".*"
+          zip -r -X ../boston_gsi_overlay_fix_v4.zip . -x ".*"
           cd ..
         working-directory: boston_module
 
       - name: Upload flashable zip
         uses: actions/upload-artifact@v4
         with:
-          name: boston_gsi_overlay_fix_v3
-          path: boston_module/boston_gsi_overlay_fix_v3.zip
+          name: boston_gsi_overlay_fix_v4
+          path: boston_module/boston_gsi_overlay_fix_v4.zip
           retention-days: 30
