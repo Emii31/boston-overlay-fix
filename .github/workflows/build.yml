@@ -1,5 +1,11 @@
 name: Build Boston Overlay Fix
 
+# Verified against android-actions/setup-android's real README (fetched
+# 2026-07-01): that action only installs `tools` + `platform-tools` by
+# default. build-tools and a platform (for android.jar) are NOT installed
+# automatically and must be requested explicitly via sdkmanager, which is
+# what the "Install build-tools and platform" step below does.
+
 on:
   workflow_dispatch:
   push:
@@ -33,6 +39,16 @@ jobs:
           set -e
           BUILD_TOOLS="$ANDROID_HOME/build-tools/35.0.0"
           PLATFORM_JAR="$ANDROID_HOME/platforms/android-35/android.jar"
+          if [ ! -d "$BUILD_TOOLS" ]; then
+            echo "ERROR: build-tools;35.0.0 did not install to expected path $BUILD_TOOLS"
+            find "$ANDROID_HOME/build-tools" -maxdepth 1
+            exit 1
+          fi
+          if [ ! -f "$PLATFORM_JAR" ]; then
+            echo "ERROR: android.jar not found at expected path $PLATFORM_JAR"
+            find "$ANDROID_HOME/platforms" -maxdepth 2
+            exit 1
+          fi
           echo "build_tools=$BUILD_TOOLS" >> "$GITHUB_OUTPUT"
           echo "platform_jar=$PLATFORM_JAR" >> "$GITHUB_OUTPUT"
 
@@ -47,8 +63,15 @@ jobs:
             -dname "CN=Boston Overlay Fix V1, OU=Personal, O=Personal, L=Unknown, ST=Unknown, C=US"
         working-directory: boston_module
 
-      - name: Convert to Android 16 Dynamic Overlays and Compile
+      - name: Link, align, and sign each overlay
         run: |
+          # NOTE: deliberately NOT using `set -e` in this step. Verified by
+          # direct test that `set -e` combined with a later `if [ $? -ne 0 ]`
+          # check kills the script on the first failing command before that
+          # check ever runs - which would silently abort on overlay #1 with
+          # no per-overlay diagnostic, defeating the point of looping through
+          # all 8 and reporting exactly which ones failed. Every command's
+          # exit code below is checked explicitly instead.
           AAPT2="${{ steps.sdk.outputs.build_tools }}/aapt2"
           ZIPALIGN="${{ steps.sdk.outputs.build_tools }}/zipalign"
           APKSIGNER="${{ steps.sdk.outputs.build_tools }}/apksigner"
@@ -58,7 +81,6 @@ jobs:
 
           FAILED=0
           for overlay_dir in overlays/*/; do
-            [ -d "$overlay_dir" ] || continue
             name=$(basename "$overlay_dir")
             manifest="$overlay_dir/AndroidManifest.xml"
             compiled_zip="compiled_resources/${name}.zip"
@@ -68,22 +90,17 @@ jobs:
               continue
             fi
 
-            # CRITICAL ANDROID 16 FIX: Strip isStatic="true" so idmap2d stops crashing
-            sed -i 's/android:isStatic="true"/android:isStatic="false"/g' "$manifest"
-
-            echo "=== Building Dynamic Overlay: $name ==="
+            echo "=== Building $name ==="
 
             "$AAPT2" link \
               -I "$FRAMEWORK" \
               --manifest "$manifest" \
-              --allow-reserved-package-id \
-              --no-resource-removal \
               -o "build_output/${name}.unsigned.apk" \
               "$compiled_zip"
             link_status=$?
 
             if [ "$link_status" -ne 0 ]; then
-              echo "!!! aapt2 link FAILED for $name"
+              echo "!!! aapt2 link FAILED for $name (exit $link_status)"
               FAILED=1
               continue
             fi
@@ -91,6 +108,13 @@ jobs:
             "$ZIPALIGN" -f 4 \
               "build_output/${name}.unsigned.apk" \
               "build_output/${name}.aligned.apk"
+            align_status=$?
+
+            if [ "$align_status" -ne 0 ]; then
+              echo "!!! zipalign FAILED for $name (exit $align_status)"
+              FAILED=1
+              continue
+            fi
 
             "$APKSIGNER" sign \
               --ks boston_overlay_debug.keystore \
@@ -98,15 +122,23 @@ jobs:
               --ks-key-alias boston-overlay \
               --out "dist/${name}.apk" \
               "build_output/${name}.aligned.apk"
-            
-            if [ $? -ne 0 ]; then
+            sign_status=$?
+
+            if [ "$sign_status" -eq 0 ]; then
+              echo "OK: dist/${name}.apk"
+            else
+              echo "!!! apksigner FAILED for $name (exit $sign_status)"
               FAILED=1
             fi
           done
 
           if [ "$FAILED" -eq 1 ]; then
+            echo "One or more overlays failed. Failing the build rather than"
+            echo "shipping a partial module that silently omits fixes."
             exit 1
           fi
+
+          ls -la dist/
         working-directory: boston_module
 
       - name: Assemble flashable Magisk zip
@@ -123,24 +155,22 @@ jobs:
           if [ -f system.prop ]; then
             cp system.prop "$STAGING/"
           fi
-          
           cp META-INF/com/google/android/update-binary "$STAGING/META-INF/com/google/android/"
           cp META-INF/com/google/android/updater-script "$STAGING/META-INF/com/google/android/"
           cp common/customize.sh "$STAGING/common/"
           cp common/post-fs-data.sh "$STAGING/common/"
           cp common/service.sh "$STAGING/common/"
-          
-          # Inject the working signed dynamic APKs
           cp dist/*.apk "$STAGING/overlay/product/overlay/"
-          
-          # Properly grab and copy audio_effects.xml into the Magisk structure
           if [ -d overlay/vendor/etc ]; then
-            cp -a overlay/vendor/etc/* "$STAGING/overlay/vendor/etc/"
+            cp -a overlay/vendor/etc/* "$STAGING/overlay/vendor/etc/" 2>/dev/null || true
           fi
 
           cd "$STAGING"
           zip -r -X ../boston_gsi_overlay_fix_v3.zip . -x ".*"
           cd ..
+
+          echo "=== Final zip contents ==="
+          unzip -l boston_gsi_overlay_fix_v3.zip
         working-directory: boston_module
 
       - name: Upload flashable zip
