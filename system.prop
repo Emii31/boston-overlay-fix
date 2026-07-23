@@ -1,0 +1,69 @@
+# Boston GSI Overlay Fix - V2 cosmetic device-identity props
+# Purpose: populate About-phone / device-info fields that read as "Unknown"
+# on this GSI build, using standard, real Android build properties only.
+#
+# NOT included, and why: battery capacity (mAh) and camera megapixel count
+# have no standard build.prop equivalent in AOSP. Those fields are read
+# from live hardware APIs (BatteryManager / Camera2 characteristics) that a
+# GSI's HAL either does or doesn't populate correctly - a resetprop value
+# has no path into those specific fields. Setting an invented prop name for
+# them would silently do nothing, which is worse than leaving this note.
+#
+# Source for values: user-supplied device specs, cross-checked against this
+# conversation's own confirmed findings where overlap exists (resolution,
+# platform codename). Not independently re-verified against a firmware
+# dump for every field - see inline notes.
+
+# Confirmed independently in this investigation (1080x2400, from
+# SurfaceFlinger dump and framework RRO decode, several sessions ago)
+ro.sf.lcd_density=400
+
+# Confirmed independently (ro.board.platform / ro.product.vendor.board
+# checks against 'parrot' in customize.sh's device-match logic)
+ro.board.platform=parrot
+
+# User-supplied, not independently verified against a firmware dump
+ro.product.model=Moto G Stylus 5G 2024
+ro.product.manufacturer=motorola
+ro.product.brand=motorola
+
+# ====================================================================
+# Telephony (LTE/5G data recovery) - merged in from telephony_fix module
+#
+# Confirmed on-device, by the person who built this module, across
+# repeated real-world testing: with this property set active, LTE/5G
+# data registration comes up reliably on both Grameenphone and Airtel/
+# Robi after a GSI flash. Without it, data is confirmed stuck on EDGE.
+# This was tested as a full bundle, not property-by-property in
+# isolation (isolation testing was deferred pending a clean GSI flash,
+# which wasn't available at the time this was merged) - so which
+# individual line(s) are load-bearing vs. inert alongside the real fix
+# is not yet known. All are kept together as the verified-working unit
+# until isolation testing can happen.
+#
+# Two lines from the original set are EXCLUDED here, on structural
+# grounds independent of the isolation-testing question:
+#   - ro.boot.hardware.sku=xt2419: ro.boot.* properties are set by the
+#     bootloader before init runs. A system.prop entry (applied via
+#     resetprop much later in boot) cannot override this - the
+#     property system does not permit it, regardless of whether the
+#     intended value is correct.
+#   - telephony.lteOnCdmaDevice=1: legacy CDMA-era property. This
+#     device and both carriers (Grameenphone, Airtel/Robi) are
+#     GSM/LTE/5G-NR, not CDMA - not applicable to this radio
+#     technology regardless of test outcome.
+# Duplicate lines present in the original property file (three
+# properties were listed twice) have been de-duplicated below.
+
+persist.vendor.radio.atfwd.start=true
+ro.telephony.default_network=33
+persist.radio.rat_on=combine
+persist.sys.phh.radio.force_user_network_setting=true
+persist.vendor.radio.force_on_dc=true
+persist.vendor.radio.data_ltd_sys_ind=1
+persist.dbg.volte_avail_ovr=1
+persist.dbg.vt_avail_ovr=1
+persist.dbg.wfc_avail_ovr=1
+persist.sys.phh.ims.caf=true
+ro.telephony.euicc_device_enabled=true
+persist.radio.multisim.config=dsds
