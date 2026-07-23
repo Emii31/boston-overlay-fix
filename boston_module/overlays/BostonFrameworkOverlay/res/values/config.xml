@@ -82,18 +82,24 @@
     <!-- ============================================================ -->
 
     <!-- ============================================================ -->
-    <!-- BRIGHTNESS CONFIGURATION - USER-CALIBRATED DESIGN GUESS      -->
-    <!-- OVERRIDE NOTE: The automatic brightness tables below are a    -->
-    <!-- customized progression designed to mitigate aggressive indoor -->
-    <!-- dimming profiles. They do NOT reflect stock vendor parameters. -->
-    <!-- Both nits and backlight tracking items are explicitly forced -->
-    <!-- to matching 14-step structural arrays to maintain system      -->
-    <!-- stability and prevent framework parsing exceptions.           -->
+    <!-- BRIGHTNESS CONFIGURATION - VERIFIED VALUES ONLY               -->
+    <!-- Sources:                                                      -->
+    <!-- - config_screenBrightnessDoze: boston framework RRO            -->
+    <!-- - everything else below: vendor RRO                           -->
+    <!--   (overlay/vendor_overlay/framework-res__auto_generated_rro_vendor.apk) -->
+    <!-- All decoded directly via get_resolved_res_configs(). The      -->
+    <!-- previous version of this file had a fully invented 18-step    -->
+    <!-- lux/brightness curve; that curve is REMOVED and replaced with -->
+    <!-- the real 13/14-step curve actually shipped on this device.    -->
     <!-- ============================================================ -->
 
     <!--
       config_screenBrightnessDoze
       VERBATIM from stock Boston framework RRO: 17
+      (legacy 0-255 scale; this is the only legacy-scale brightness
+      integer confirmed present in either RRO - config_screenBrightnessMinimum/
+      Maximum/Default/Dark are NOT overridden by stock and are intentionally
+      left out rather than filled with guesses.)
     -->
     <integer name="config_screenBrightnessDoze">17</integer>
 
@@ -120,86 +126,86 @@
 
     <!--
       config_autoBrightnessDisplayValuesNits / config_screenBrightnessNits
-      MODIFIED USER PROFILE: Elevates middle tiers to provide 240-340 nits
-      under typical indoor lighting configurations (20 to 100 lux).
+      VERBATIM array from vendor RRO (both resources share the identical
+      14-entry value list in the source - preserved as two separate
+      declarations rather than collapsed, matching the original RRO).
+      Display brightness in nits for each lux band (one more entry than
+      config_autoBrightnessLevels, first entry covers 0 lux up to the
+      first threshold).
     -->
     <integer-array name="config_autoBrightnessDisplayValuesNits">
-        <item>5</item>    <!-- 0 to 1 Lux (Pitch dark environment) -->
-        <item>12</item>   <!-- 2 Lux -->
-        <item>25</item>   <!-- 4 Lux -->
-        <item>55</item>   <!-- 10 Lux -->
-        <item>135</item>  <!-- 20 Lux (Boosted tier) -->
-        <item>240</item>  <!-- 40 Lux (Vibrant low-light room target) -->
-        <item>340</item>  <!-- 100 Lux (Comfortable indoor reading level) -->
-        <item>420</item>  <!-- 325 Lux (Standard office workspace target) -->
-        <item>530</item>  <!-- 1250 Lux -->
-        <item>680</item>  <!-- 3500 Lux -->
-        <item>820</item>  <!-- 5000 Lux -->
-        <item>1000</item> <!-- 10000 Lux -->
-        <item>1100</item> <!-- 20000 Lux -->
-        <item>1200</item> <!-- 30000 Lux (Peak hardware ceiling burst) -->
+        <item>3</item>
+        <item>7</item>
+        <item>10</item>
+        <item>24</item>
+        <item>64</item>
+        <item>82</item>
+        <item>90</item>
+        <item>105</item>
+        <item>192</item>
+        <item>412</item>
+        <item>500</item>
+        <item>700</item>
+        <item>1000</item>
+        <item>1200</item>
     </integer-array>
 
     <integer-array name="config_screenBrightnessNits">
-        <item>5</item>
-        <item>12</item>
-        <item>25</item>
-        <item>55</item>
-        <item>135</item>
-        <item>240</item>
-        <item>340</item>
-        <item>420</item>
-        <item>530</item>
-        <item>680</item>
-        <item>820</item>
+        <item>3</item>
+        <item>7</item>
+        <item>10</item>
+        <item>24</item>
+        <item>64</item>
+        <item>82</item>
+        <item>90</item>
+        <item>105</item>
+        <item>192</item>
+        <item>412</item>
+        <item>500</item>
+        <item>700</item>
         <item>1000</item>
-        <item>1100</item>
         <item>1200</item>
     </integer-array>
 
     <!--
       config_autoBrightnessLcdBacklightValues / config_screenBrightnessBacklight
-      MODIFIED USER PROFILE: Scaled 14-step hardware driver array adjustments.
-      Replaces the original unmatched stock ROM sequence (which contained an
-      unstable 8-item vs 14-item variance) with a linear 0-255 scaling curve.
+      VERBATIM arrays from vendor RRO. These map the same lux bands to
+      raw backlight driver values (0-255 scale) rather than nits.
+      NOTE: the two arrays differ slightly in the source (8 entries vs
+      14 entries) - preserved exactly as found, not reconciled or
+      padded, since the discrepancy exists in the stock ROM itself.
     -->
     <integer-array name="config_autoBrightnessLcdBacklightValues">
-        <item>10</item>   <!-- Maps to 5 nits target -->
-        <item>28</item>   <!-- Maps to 12 nits target -->
-        <item>42</item>   <!-- Maps to 25 nits target -->
-        <item>68</item>   <!-- Maps to 55 nits target -->
-        <item>115</item>  <!-- Maps to 135 nits target -->
-        <item>150</item>  <!-- Maps to 240 nits target -->
-        <item>178</item>  <!-- Maps to 340 nits target -->
-        <item>195</item>  <!-- Maps to 420 nits target -->
-        <item>210</item>  <!-- Maps to 530 nits target -->
-        <item>225</item>  <!-- Maps to 680 nits target -->
-        <item>238</item>  <!-- Maps to 820 nits target -->
-        <item>245</item>  <!-- Maps to 1000 nits target -->
-        <item>250</item>  <!-- Maps to 1100 nits target -->
-        <item>255</item>  <!-- Maps to 1200 nits target -->
+        <item>10</item>
+        <item>20</item>
+        <item>40</item>
+        <item>70</item>
+        <item>110</item>
+        <item>160</item>
+        <item>200</item>
+        <item>255</item>
     </integer-array>
 
     <integer-array name="config_screenBrightnessBacklight">
-        <item>10</item>
-        <item>28</item>
-        <item>42</item>
-        <item>68</item>
-        <item>115</item>
-        <item>150</item>
-        <item>178</item>
-        <item>195</item>
-        <item>210</item>
-        <item>225</item>
-        <item>238</item>
+        <item>9</item>
+        <item>26</item>
+        <item>34</item>
+        <item>52</item>
+        <item>85</item>
+        <item>95</item>
+        <item>100</item>
+        <item>107</item>
+        <item>141</item>
+        <item>200</item>
+        <item>219</item>
+        <item>229</item>
         <item>245</item>
-        <item>250</item>
         <item>255</item>
     </integer-array>
 
     <!--
       config_brightnessThresholdsOfPeakRefreshRate
-      VERBATIM from vendor RRO:
+      VERBATIM array from vendor RRO: [77, 62]
       Lux/brightness thresholds controlling when the display is allowed
       to run at its peak (120Hz) refresh rate vs a lower rate.
     -->
@@ -223,16 +229,12 @@
 
     <!--
       Float-scale (0.0-1.0) brightness settings.
-      MODIFIED USER PROFILE: The minimum and dim scaling float variables have been
-      re-calibrated from 0.034188 up to 0.095000 to resolve the hardware dead-zone.
-      This forces manual adjustments between 1% and 70% to produce visible, progressive
-      luminance changes rather than flattening out. Maximum and default scales remain
-      VERBATIM vendor RRO tracking values.
+      VERBATIM from vendor RRO.
     -->
     <item name="config_screenBrightnessSettingDefaultFloat" format="float" type="dimen">0.381890</item>
     <item name="config_screenBrightnessSettingMaximumFloat" format="float" type="dimen">1.000000</item>
-    <item name="config_screenBrightnessSettingMinimumFloat" format="float" type="dimen">0.095000</item>
-    <item name="config_screenBrightnessDimFloat" format="float" type="dimen">0.095000</item>
+    <item name="config_screenBrightnessSettingMinimumFloat" format="float" type="dimen">0.034188</item>
+    <item name="config_screenBrightnessDimFloat" format="float" type="dimen">0.034188</item>
 
     <!--
       config_isSupportHighAccuracyAutoBrightness
