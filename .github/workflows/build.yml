@@ -1,4 +1,4 @@
-Name: Build Boston Overlay Fix
+name: Build Boston Overlay Fix
 
 on:
   workflow_dispatch:
