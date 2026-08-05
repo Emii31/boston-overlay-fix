@@ -1,4 +1,4 @@
-name: Build Boston Overlay Fix
+Name: Build Boston Overlay Fix
 
 on:
   workflow_dispatch:
@@ -55,7 +55,7 @@ jobs:
             -keyalg RSA -keysize 2048 -validity 10000 \
             -storepass boston-overlay-debug -keypass boston-overlay-debug \
             -dname "CN=Boston Overlay Fix V1, OU=Personal, O=Personal, L=Unknown, ST=Unknown, C=US"
-        working-directory: boston_module
+        working-directory: .
 
       - name: Compile, link, align, and sign each overlay
         run: |
@@ -74,9 +74,9 @@ jobs:
 
             echo "=== Building $name ==="
 
-            # Compile fresh resources if res/ folder exists, otherwise fallback to existing compiled zip
+            # Compile fresh raw resources from /res directory if present
             if [ -d "$res_dir" ]; then
-              echo "Compiling resources for $name..."
+              echo "Compiling raw res/ files for $name..."
               "$AAPT2" compile --dir "$res_dir" -o "$compiled_zip"
               compile_status=$?
               if [ "$compile_status" -ne 0 ]; then
@@ -87,10 +87,11 @@ jobs:
             fi
 
             if [ ! -f "$compiled_zip" ]; then
-              echo "SKIP $name: no compiled resource zip found"
+              echo "SKIP $name: no compiled resource zip available"
               continue
             fi
 
+            # Link compiled resources into unsigned APK
             "$AAPT2" link \
               -I "$FRAMEWORK" \
               --manifest "$manifest" \
@@ -103,6 +104,7 @@ jobs:
               continue
             fi
 
+            # Zipalign unsigned APK
             "$ZIPALIGN" -f 4 \
               "build_output/${name}.unsigned.apk" \
               "build_output/${name}.aligned.apk"
@@ -113,6 +115,7 @@ jobs:
               continue
             fi
 
+            # Sign APK with debug keystore
             "$APKSIGNER" sign \
               --ks boston_overlay_debug.keystore \
               --ks-pass pass:boston-overlay-debug \
@@ -132,7 +135,7 @@ jobs:
             echo "One or more overlays failed."
             exit 1
           fi
-        working-directory: boston_module
+        working-directory: .
 
       - name: Assemble flashable Magisk zip
         run: |
@@ -140,14 +143,15 @@ jobs:
           STAGING=module_staging
           rm -rf "$STAGING"
 
-          # Create system folder structure
+          # Prepare destination directories
           mkdir -p "$STAGING/META-INF/com/google/android"
           mkdir -p "$STAGING/overlay/product/overlay"
           mkdir -p "$STAGING/system/product/overlay"
           mkdir -p "$STAGING/system/product/etc"
+          mkdir -p "$STAGING/system/system/etc"
           mkdir -p "$STAGING/system/vendor/etc"
 
-          # Core configs
+          # Core configs & props
           cp module.prop "$STAGING/"
           if [ -f system.prop ]; then
             cp system.prop "$STAGING/"
@@ -160,13 +164,16 @@ jobs:
           cp common/post-fs-data.sh "$STAGING/"
           cp common/service.sh "$STAGING/"
 
-          # Copy compiled overlay APKs
+          # Copy freshly compiled overlay APKs
           cp dist/*.apk "$STAGING/overlay/product/overlay/"
           cp dist/*.apk "$STAGING/system/product/overlay/"
 
-          # Copy network configs (CarrierSettings) & vendor audio configs
+          # Copy network & carrier configs (CarrierSettings, APNs, carrier_config)
           if [ -d overlay/product/etc ]; then
             cp -a overlay/product/etc/* "$STAGING/system/product/etc/" 2>/dev/null || true
+          fi
+          if [ -d overlay/system/etc ]; then
+            cp -a overlay/system/etc/* "$STAGING/system/system/etc/" 2>/dev/null || true
           fi
           if [ -d overlay/vendor/etc ]; then
             cp -a overlay/vendor/etc/* "$STAGING/system/vendor/etc/" 2>/dev/null || true
@@ -175,11 +182,11 @@ jobs:
           cd "$STAGING"
           zip -r -X ../boston_gsi_overlay_fix_v5.zip . -x ".*"
           cd ..
-        working-directory: boston_module
+        working-directory: .
 
       - name: Upload flashable zip
         uses: actions/upload-artifact@v4
         with:
           name: boston_gsi_overlay_fix_v5
-          path: boston_module/boston_gsi_overlay_fix_v5.zip
+          path: boston_gsi_overlay_fix_v5.zip
           retention-days: 30
