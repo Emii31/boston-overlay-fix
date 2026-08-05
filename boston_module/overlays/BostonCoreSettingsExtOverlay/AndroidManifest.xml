@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  BostonCoreSettingsExtOverlay
+  Target: com.motorola.coresettingsext (Motorola proprietary system app,
+          NOT android framework or com.android.systemui)
+  Purpose: Reapply Boston's supported refresh rate list (0/60/120Hz) to
+           this Motorola-specific settings extension package.
+
+  Source: overlay/product/MotoCoreSettingsExtBostonOverlay.apk, decoded
+  directly. That APK's manifest confirms priority=15, isStatic=true,
+  targetPackage=com.motorola.coresettingsext.
+
+  IMPORTANT V1 caveat: com.motorola.coresettingsext may not be present
+  on a GSI system partition at all - it is a Motorola proprietary app,
+  not part of AOSP/GSI. If absent, this overlay is simply inert (Android's
+  OverlayManager silently no-ops an RRO whose target package isn't
+  installed); it will not cause a boot failure or break anything if the
+  package is missing. Included because if Motorola's system_ext partition
+  with this app does coexist with the GSI system partition in this setup,
+  the override is needed; if it doesn't, this overlay does nothing and is
+  harmless either way.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    android:versionCode="1"
+    android:versionName="1.0"
+    package="com.boston.overlay.coresettingsext">
+
+    <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="35"/>
+
+    <application android:hasCode="false" android:extractNativeLibs="false"/>
+
+    <overlay
+        android:priority="15"
+        android:targetPackage="com.motorola.coresettingsext"
+        android:isStatic="true"/>
+
+</manifest>

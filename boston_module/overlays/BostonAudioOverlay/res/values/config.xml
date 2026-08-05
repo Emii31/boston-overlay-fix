@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  BostonAudioOverlay - VERIFIED VALUES ONLY
+
+  Sources:
+  - config_safe_media_volume_enabled: stock Boston framework RRO
+    (apps/framework-res__boston_g__auto_generated_rro_product.apk)
+  - config_speed_up_audio_on_mt_calls: stock Boston vendor RRO
+    (overlay/vendor_overlay/framework-res__auto_generated_rro_vendor.apk)
+
+  These are the ONLY two audio-related resources found across every
+  decoded overlay APK in the dump. No volume-step arrays, no audio
+  policy values, no mixer gains exist as RRO-overridable framework
+  resources in stock Boston - that tuning lives in vendor/etc XML
+  files instead (see manifest comment for why those are V2 scope).
+-->
+<resources>
+
+    <!--
+      config_safe_media_volume_enabled
+      VERBATIM from stock Boston framework RRO: true
+      Enables the EU/regional safe-listening-volume warning dialog and
+      cap. Preserved as-is from stock rather than disabled, since
+      disabling a safety feature isn't something to do silently as part
+      of an unrelated overlay fix.
+    -->
+    <bool name="config_safe_media_volume_enabled">true</bool>
+
+    <!--
+      config_speed_up_audio_on_mt_calls
+      VERBATIM from stock Boston vendor RRO: true
+      Reduces audio path setup latency for mobile-terminated (incoming)
+      calls. Telephony-adjacent but this is a generic audio-routing
+      timing flag, not part of the IMS/VoLTE telephony stack itself, so
+      it's in scope per the "resources and configuration files" boundary
+      - if this should instead be considered out-of-scope telephony
+      territory, flag it and it comes out in V2.
+    -->
+    <bool name="config_speed_up_audio_on_mt_calls">true</bool>
+
+</resources>
