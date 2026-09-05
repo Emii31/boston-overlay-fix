@@ -193,3 +193,14 @@ jobs:
           name: boston_gsi_overlay_fix_v5
           path: "**/boston_gsi_overlay_fix_v5.zip"
           retention-days: 30
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+  with:
+       tag_name: v5 # You can change this to 'latest' or a version number
+       name: Boston Overlay Fix v5
+       files: boston_gsi_overlay_fix_v5.zip # Path to your zip file
+       generate_release_notes: true
+       prerelease: false
+       env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
