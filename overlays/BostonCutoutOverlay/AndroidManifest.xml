@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  BostonCutoutOverlay
+  Target: android
+  Purpose: Reapply Boston's stock display cutout geometry on the GSI framework.
+
+  All values in res/values/config.xml are copied VERBATIM from
+  apps/framework-res__boston_g__auto_generated_rro_product.apk (priority=1,
+  package android.auto_generated_rro_product__), extracted by decoding its
+  resources.arsc directly. Nothing here is calculated or estimated.
+
+  Priority: 12 - higher than the stock boston RRO (1), MotoFrameworkCommon (2),
+  and MotoFrameworkQcom (7), so this wins resolution conflicts for the
+  cutout-related keys it defines, while leaving every other key those overlays
+  set untouched (RRO resolution is per-resource-key, not per-APK).
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    android:versionCode="1"
+    android:versionName="1.0"
+    package="com.boston.overlay.cutout">
+
+    <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="35"/>
+
+    <application android:hasCode="false" android:extractNativeLibs="false"/>
+
+    <overlay
+        android:priority="12"
+        android:targetPackage="android"
+        android:isStatic="true"/>
+
+</manifest>
