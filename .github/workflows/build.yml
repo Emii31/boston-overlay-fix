@@ -8,6 +8,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # ✅ THIS FIXES THE 403 ERROR: Grants permission to create releases
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -18,7 +21,7 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Setup Android SDK (tools + platform-tools)
+      - name: Setup Android SDK
         uses: android-actions/setup-android@v4
 
       - name: Install build-tools and platform
@@ -34,13 +37,11 @@ jobs:
           BUILD_TOOLS="$ANDROID_HOME/build-tools/35.0.0"
           PLATFORM_JAR="$ANDROID_HOME/platforms/android-35/android.jar"
           if [ ! -d "$BUILD_TOOLS" ]; then
-            echo "ERROR: build-tools;35.0.0 did not install to expected path $BUILD_TOOLS"
-            find "$ANDROID_HOME/build-tools" -maxdepth 1
+            echo "ERROR: build-tools not found at $BUILD_TOOLS"
             exit 1
           fi
           if [ ! -f "$PLATFORM_JAR" ]; then
-            echo "ERROR: android.jar not found at expected path $PLATFORM_JAR"
-            find "$ANDROID_HOME/platforms" -maxdepth 2
+            echo "ERROR: android.jar not found at $PLATFORM_JAR"
             exit 1
           fi
           echo "build_tools=$BUILD_TOOLS" >> "$GITHUB_OUTPUT"
@@ -49,92 +50,47 @@ jobs:
       - name: Generate signing keystore
         run: |
           set -e
-          # Locate working directory (boston_module if subfolder, otherwise root)
           if [ -d "boston_module" ]; then cd boston_module; fi
-
           keytool -genkeypair -v \
             -keystore boston_overlay_debug.keystore \
             -alias boston-overlay \
             -keyalg RSA -keysize 2048 -validity 10000 \
-            -storepass boston-overlay-debug -keypass boston-overlay-debug \
-            -dname "CN=Boston Overlay Fix V1, OU=Personal, O=Personal, L=Unknown, ST=Unknown, C=US"
+            -storepass boston-overlay-debug \
+            -keypass boston-overlay-debug \
+            -dname "CN=Boston Overlay Fix, OU=Personal, O=Personal, L=Unknown, ST=Unknown, C=US"
 
       - name: Compile, link, align, and sign each overlay
         run: |
           if [ -d "boston_module" ]; then cd boston_module; fi
-
           AAPT2="${{ steps.sdk.outputs.build_tools }}/aapt2"
           ZIPALIGN="${{ steps.sdk.outputs.build_tools }}/zipalign"
           APKSIGNER="${{ steps.sdk.outputs.build_tools }}/apksigner"
           FRAMEWORK="${{ steps.sdk.outputs.platform_jar }}"
-
-          mkdir -p build_output dist compiled_resources FAILED=0
-
+          mkdir -p build_output dist compiled_resources
+          FAILED=0
           for overlay_dir in overlays/*/; do
             name=$(basename "$overlay_dir")
             manifest="$overlay_dir/AndroidManifest.xml"
             res_dir="$overlay_dir/res"
             compiled_zip="compiled_resources/${name}.zip"
-
             echo "=== Building $name ==="
-
-            # Compile fresh raw resources from /res directory if present
             if [ -d "$res_dir" ]; then
-              echo "Compiling raw res/ files for $name..."
-              "$AAPT2" compile --dir "$res_dir" -o "$compiled_zip"
-              compile_status=$?
-              if [ "$compile_status" -ne 0 ]; then
-                echo "!!! aapt2 compile FAILED for $name (exit $compile_status)"
-                FAILED=1
-                continue
-              fi
+              "$AAPT2" compile --dir "$res_dir" -o "$compiled_zip" || { echo "compile FAILED"; FAILED=1; continue; }
             fi
-
             if [ ! -f "$compiled_zip" ]; then
-              echo "SKIP $name: no compiled resource zip available"
+              echo "SKIP $name: no compiled resources"
               continue
             fi
-
-            # Link compiled resources into unsigned APK
-            "$AAPT2" link \
-              -I "$FRAMEWORK" \
-              --manifest "$manifest" \
-              -o "build_output/${name}.unsigned.apk" \
-              "$compiled_zip"
-            link_status=$?
-            if [ "$link_status" -ne 0 ]; then
-              echo "!!! aapt2 link FAILED for $name (exit $link_status)"
-              FAILED=1
-              continue
-            fi
-
-            # Zipalign unsigned APK
-            "$ZIPALIGN" -f 4 \
-              "build_output/${name}.unsigned.apk" \
-              "build_output/${name}.aligned.apk"
-            align_status=$?
-            if [ "$align_status" -ne 0 ]; then
-              echo "!!! zipalign FAILED for $name (exit $align_status)"
-              FAILED=1
-              continue
-            fi
-
-            # Sign APK with debug keystore
+            "$AAPT2" link -I "$FRAMEWORK" --manifest "$manifest" -o "build_output/${name}.unsigned.apk" "$compiled_zip" || { echo "link FAILED"; FAILED=1; continue; }
+            "$ZIPALIGN" -f 4 "build_output/${name}.unsigned.apk" "build_output/${name}.aligned.apk" || { echo "zipalign FAILED"; FAILED=1; continue; }
             "$APKSIGNER" sign \
               --ks boston_overlay_debug.keystore \
               --ks-pass pass:boston-overlay-debug \
               --ks-key-alias boston-overlay \
               --out "dist/${name}.apk" \
-              "build_output/${name}.aligned.apk"
-            sign_status=$?
-            if [ "$sign_status" -eq 0 ]; then
-              echo "OK: dist/${name}.apk"
-            else
-              echo "!!! apksigner FAILED for $name (exit $sign_status)"
-              FAILED=1
-            fi
+              "build_output/${name}.aligned.apk" || { echo "sign FAILED"; FAILED=1; continue; }
+            echo "OK: dist/${name}.apk"
           done
-
           if [ "$FAILED" -eq 1 ]; then
             echo "One or more overlays failed."
             exit 1
@@ -144,46 +100,26 @@ jobs:
         run: |
           set -e
           if [ -d "boston_module" ]; then cd boston_module; fi
-
           STAGING=module_staging
           rm -rf "$STAGING"
-
-          # Prepare destination directories
           mkdir -p "$STAGING/META-INF/com/google/android"
           mkdir -p "$STAGING/overlay/product/overlay"
           mkdir -p "$STAGING/system/product/overlay"
           mkdir -p "$STAGING/system/product/etc"
           mkdir -p "$STAGING/system/system/etc"
           mkdir -p "$STAGING/system/vendor/etc"
-
-          # Core configs & props
           cp module.prop "$STAGING/"
-          if [ -f system.prop ]; then
-            cp system.prop "$STAGING/"
-          fi
-
-          # Binaries & Scripts
+          [ -f system.prop ] && cp system.prop "$STAGING/"
           cp META-INF/com/google/android/update-binary "$STAGING/META-INF/com/google/android/"
           cp META-INF/com/google/android/updater-script "$STAGING/META-INF/com/google/android/"
           cp common/customize.sh "$STAGING/"
           cp common/post-fs-data.sh "$STAGING/"
           cp common/service.sh "$STAGING/"
-
-          # Copy freshly compiled overlay APKs
           cp dist/*.apk "$STAGING/overlay/product/overlay/"
           cp dist/*.apk "$STAGING/system/product/overlay/"
-
-          # Copy network & carrier configs (CarrierSettings, APNs, carrier_config)
-          if [ -d overlay/product/etc ]; then
-            cp -a overlay/product/etc/* "$STAGING/system/product/etc/" 2>/dev/null || true
-          fi
-          if [ -d overlay/system/etc ]; then
-            cp -a overlay/system/etc/* "$STAGING/system/system/etc/" 2>/dev/null || true
-          fi
-          if [ -d overlay/vendor/etc ]; then
-            cp -a overlay/vendor/etc/* "$STAGING/system/vendor/etc/" 2>/dev/null || true
-          fi
-
+          [ -d overlay/product/etc ] && cp -a overlay/product/etc/* "$STAGING/system/product/etc/" 2>/dev/null || true
+          [ -d overlay/system/etc ] && cp -a overlay/system/etc/* "$STAGING/system/system/etc/" 2>/dev/null || true
+          [ -d overlay/vendor/etc ] && cp -a overlay/vendor/etc/* "$STAGING/system/vendor/etc/" 2>/dev/null || true
           cd "$STAGING"
           zip -r -X ../boston_gsi_overlay_fix_v5.zip . -x ".*"
 
@@ -200,7 +136,7 @@ jobs:
           tag_name: v5
           name: Boston Overlay Fix v5
           files: boston_gsi_overlay_fix_v5.zip
-          generate_release_notes: true
+          generate_release_notes: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
