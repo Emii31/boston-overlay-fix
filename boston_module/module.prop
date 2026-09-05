@@ -1,7 +1,0 @@
-id=boston_gsi_overlay_fix
-name=Boston GSI Overlay Fix (V5)
-version=v5.0
-versionCode=5
-author=boston-overlay-build
-description=RRO fixes for Motorola Boston (parrot) on Android 16 GSI: display cutout geometry, UDFPS sensor position, status bar height, rounded corners, refresh rate policy, auto-brightness curve, night light, doze/AOD flags, WiFi Display, lock screen clock/notification overlap, device-identity props, Dolby audio effects. Telephony: LTE/5G data recovery (confirmed working), SMS/USSD via a real CarrierConfig-based CS/GSM fallback (support_sms_over_ims_bool / support_ussd_over_ims_bool, scoped to Grameenphone and Airtel/Robi) plus an automated post-boot radio restart - NOT yet on-device confirmed after a CRLF bug in the source module's restart script was found and fixed. Airplane-mode auto-recovery kept as a secondary fallback if the primary fix doesn't fully resolve things. Grameenphone VoLTE/ePDG CarrierSettings fix also present, schema-verified, not yet confirmed working. Airtel/Robi VoLTE still open. See README and docs/ for full status of every piece before assuming "telephony fixed."
-minMagisk=29000
